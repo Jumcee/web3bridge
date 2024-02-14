@@ -43,7 +43,7 @@ contract TodoContract {
 
     function deleteTodo(uint _index) external {
         require(_index < todos.length, "invalid index");
-        emit TodoDeleted(_index);
-        delete todos(_index);
+        emit TodoDeleted();
+        delete todos[_index];
     }
 }
