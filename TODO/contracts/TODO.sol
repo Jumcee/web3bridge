@@ -42,8 +42,15 @@ contract TodoContract {
     }
 
     function deleteTodo(uint _index) external {
-        require(_index < todos.length, "invalid index");
-        emit TodoDeleted();
-        delete todos[_index];
-    }
+    require(_index < todos.length, "Invalid index");
+
+    // Move the last element to the position of the element to be deleted
+    todos[_index] = todos[todos.length - 1];
+
+    // Remove the last element (which is now a duplicate)
+    todos.pop();
+
+    emit TodoDeleted();
+}
+
 }
