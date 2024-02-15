@@ -4,27 +4,34 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { SaveEther__factory } from "../typechain-types";
 
 describe("SaveEther", function () {
+  let owner;
+
   async function deployContract() {
+    const [deployer] = await ethers.getSigners();
+    owner = deployer;
     const SaveEtherContractFactory = await ethers.getContractFactory("SaveEther");
     const saveEtherContract = await SaveEtherContractFactory.deploy();
-    return { SaveEther__factory };
+    return { saveEtherContract, owner };
   }
 
-
   it("Should be able to make a successful deposit", async function () {
-    const { SaveEther__factory } = await loadFixture(deployContract);
+    const { saveEtherContract, owner } = await loadFixture(deployContract);
   
     // Make a deposit of 100 wei
     const depositAmount = 100;
-    await expect(SaveEther__factory.deposit({ value: depositAmount }))
-      .to.emit(saveEther, "SavingSuccessful")
+    await expect(saveEtherContract.deposit({ value: depositAmount }))
+      .to.emit(saveEtherContract, "SavingSuccessful")
       .withArgs(owner.address, depositAmount);
   
     // Check user savings after deposit
-    const userSavingsAfterDeposit = await saveEther.savings(owner.address);
+    const userSavingsAfterDeposit = await saveEtherContract.getUserSavings(owner.address);
     expect(userSavingsAfterDeposit).to.equal(depositAmount);
   });
-})  
+});
+
+
+
+
   
 
   //   it("Should toggle isDone status", async function () {

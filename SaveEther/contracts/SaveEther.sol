@@ -12,6 +12,11 @@ contract SaveEther {
         savings[msg.sender] = savings[msg.sender] + msg.value;
         emit SavingSuccessful(msg.sender, msg.value);
     }
+
+ function getUserSavings(address user) external view returns (uint256) {
+        return savings[user];
+    }
+
     function withdraw() external {
         require(msg.sender != address(0), "wrong EOA");
         uint256 _userSavings = savings[msg.sender];
