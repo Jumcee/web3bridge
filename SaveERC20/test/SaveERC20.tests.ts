@@ -1,85 +1,72 @@
+import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { SaveERC20__factory } from "../typechain-types";
 
-describe("SaveERC20", function () {
-  let owner;
+describe("SaveERC20 Test", function () {
+  async function deploySaveERC20Fixture() {
+    const [owner, addr1, addr2] = await ethers.getSigners();
 
-  async function deployContract() {
-    const [deployer] = await ethers.getSigners();
-    owner = deployer;
-    const SaveERC20ContractFactory = (await ethers.getContractFactory(
-      "SaveERC20",
-      deployer
-    )) as SaveERC20__factory;
+    // Use MockERC20 contract for testing purposes
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const mockERC20 = await MockERC20.deploy();
 
-    // Deploying the contract with a mock ERC20 token address for testing purposes
-    const saveERC20Contract = await SaveERC20ContractFactory.deploy(
-      "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-    );
+    const SaveERC20 = await ethers.getContractFactory("SaveERC20");
+    const saveERC20 = await SaveERC20.deploy(mockERC20.address);
 
-    return { saveERC20Contract, owner };
+    // Mint some tokens for testing
+    await mockERC20.mint(owner.address, 1000);
+
+    return {
+      saveERC20,
+      owner,
+      addr1,
+      addr2,
+      mockERC20,
+    };
   }
 
-  it("Should be able to make a successful deposit", async function () {
-    const { saveERC20Contract, owner } = await loadFixture(deployContract);
-  
-    // Approve the contract to spend some tokens (this is specific to ERC20 tokens)
-    const savingToken = await saveERC20Contract.savingToken; // Access as a property, not a function
-    const token = await ethers.getContractAt("IERC20", savingToken, owner);
-    await token.approve(saveERC20Contract.address, ethers.utils.parseEther("1000"));
-  
-    // Make a deposit of 100 tokens
-    const depositAmount = ethers.utils.parseEther("100");
-    await expect(saveERC20Contract.deposit(depositAmount))
-      .to.emit(saveERC20Contract, "SavingSuccessful")
-      .withArgs(owner.address, depositAmount);
-  
-    // Check user savings after deposit
-    const userSavingsAfterDeposit = await saveERC20Contract.checkUserBalance(owner.address);
-    expect(userSavingsAfterDeposit).to.equal(depositAmount);
+  describe("Basic Functions", () => {
+    it("should deposit funds successfully", async () => {
+      const { saveERC20, owner, depositAmount } = await loadFixture(deploySaveERC20Fixture);
+      const validDepositAmount = ethers.utils.parseEther("1");
+
+      // Approve spending for MockERC20
+      await saveERC20.mockERC20.approve(saveERC20.address, validDepositAmount);
+
+      await saveERC20.deposit(validDepositAmount);
+
+      const userBalance = await saveERC20.checkUserBalance(owner.address);
+      expect(userBalance).to.equal(validDepositAmount);
+    });
+
+    it("should withdraw funds successfully", async () => {
+      const { saveERC20, owner, depositAmount, mockERC20 } = await loadFixture(deploySaveERC20Fixture);
+      const validDepositAmount = ethers.utils.parseEther("1");
+
+      // Approve spending and deposit
+      await saveERC20.mockERC20.approve(saveERC20.address, validDepositAmount);
+      await saveERC20.deposit(validDepositAmount);
+
+      const initialBalance = await mockERC20.balanceOf(owner.address);
+
+      await saveERC20.withdraw(validDepositAmount);
+
+      const userBalance = await saveERC20.checkUserBalance(owner.address);
+      const finalBalance = await mockERC20.balanceOf(owner.address);
+
+      expect(userBalance).to.equal(0);
+      expect(finalBalance).to.equal(initialBalance.add(validDepositAmount));
+    });
+
+    it("should not allow insufficient withdrawals", async () => {
+      const { saveERC20, owner, depositAmount } = await loadFixture(deploySaveERC20Fixture);
+      const insufficientAmount = ethers.utils.parseEther("2"); // More than deposited
+
+      // Approve spending and deposit
+      await saveERC20.mockERC20.approve(saveERC20.address, depositAmount);
+      await saveERC20.deposit(depositAmount);
+
+      await expect(saveERC20.withdraw(insufficientAmount)).to.be.revertedWith("insufficient funds");
+    });
   });
-  
-  // Add more test cases as needed...
 });
-
-
-
-
-  
-
-  //   it("Should toggle isDone status", async function () {
-  //     const { todoContract } = await loadFixture(deployContract);
-  //     await todoContract.createTODO("Title", "Description");
-  
-  //     // Get the todos and ensure it's marked as not done initially
-  //     const todosBeforeToggle = await todoContract.getTODO();
-  //     expect(todosBeforeToggle[0].isDone).to.equal(false);
-  
-  //     // Toggle isDone status
-  //     await todoContract.toggleIsDone(0);
-  
-  //     // Get the todos again and ensure it's marked as done after toggling
-  //     const todosAfterToggle = await todoContract.getTODO();
-  //     expect(todosAfterToggle[0].isDone).to.equal(true);
-  //   });
-  
-
-  //   it("Should update a todo", async function () {
-  //     const { todoContract } = await loadFixture(deployContract);
-  //     await todoContract.createTODO("Title", "Description");
-  //     await todoContract.updateTodo(0, "New Title", "New Description");
-  //     const todos = await todoContract.getTODO();
-  //     expect(todos[0].title).to.equal("New Title");
-  //     expect(todos[0].description).to.equal("New Description");
-  //   });
-
-  //   it("Should delete a todo", async function () {
-  //     const { todoContract } = await loadFixture(deployContract);
-  //     await todoContract.createTODO("Title", "Description");
-  //     await todoContract.deleteTodo(0);
-  //     const todos = await todoContract.getTODO();
-  //     expect(todos.length).to.equal(0);
-  //   });
-  // });
