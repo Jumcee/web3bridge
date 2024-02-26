@@ -13,7 +13,6 @@ describe('NFTMarketplace', () => {
 
     const NFTMarketplaceFactory = await ethers.getContractFactory('NFTMarketplace');
     nftMarketplace = await NFTMarketplaceFactory.deploy('MyNFT', 'NFT');
-    await nftMarketplace.deployed();
   });
 
   it('should mint new NFT', async () => {
