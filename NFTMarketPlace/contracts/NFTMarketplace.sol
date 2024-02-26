@@ -1,71 +1,68 @@
-// SPDX-License-Identifier: MIT
+/// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract NFTMarketplace is ERC721, Ownable {
-    using SafeMath for uint256; // Use the library directly
+    // Counter to track token IDs
+    uint256 private _tokenIdCounter;
 
-    uint256 public nextTokenId;
-    uint256 public salePrice;
+    // Mapping from token ID to listing price
+    mapping(uint256 => uint256) private _listingPrices;
 
-    // Mapping from token ID to owner address
-    mapping(uint256 => address) private _tokenOwners;
+    // Events
+    event NFTMinted(address indexed owner, uint256 indexed tokenId);
+    event NFTListed(uint256 indexed tokenId, uint256 price);
+    event NFTSold(address indexed buyer, address indexed seller, uint256 indexed tokenId, uint256 price);
 
-    // Mapping from token ID to sale status
-    mapping(uint256 => bool) private _tokenForSale;
-
-    event TokenMinted(address indexed owner, uint256 indexed tokenId);
-    event TokenListed(uint256 indexed tokenId, uint256 salePrice);
-    event TokenSold(address indexed buyer, address indexed seller, uint256 indexed tokenId);
-
-    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) {
-        nextTokenId = 1;
-        salePrice = 1 ether; // Initial sale price, can be updated by the owner
+     constructor(string memory name, string memory symbol) ERC721(name, symbol) Ownable(msg.sender) {
     }
 
-    modifier onlyTokenOwner(uint256 tokenId) {
-        require(ownerOf(tokenId) == msg.sender, "Not the token owner");
-        _;
-    }
-
-    modifier onlyTokenForSale(uint256 tokenId) {
-        require(_tokenForSale[tokenId], "Token not listed for sale");
-        _;
-    }
-
-    function mint() external {
-        uint256 tokenId = nextTokenId;
+    // Mint new NFT
+    function mint() external onlyOwner {
+        uint256 tokenId = _tokenIdCounter;
         _safeMint(msg.sender, tokenId);
-        _tokenOwners[tokenId] = msg.sender;
-        nextTokenId++;
-        emit TokenMinted(msg.sender, tokenId);
+        _tokenIdCounter += 1;
+
+        emit NFTMinted(msg.sender, tokenId);
     }
 
-    function listForSale(uint256 tokenId, uint256 price) external onlyTokenOwner(tokenId) {
-        require(price > 0, "Sale price must be greater than zero");
-        _tokenForSale[tokenId] = true;
-        salePrice = price;
-        emit TokenListed(tokenId, price);
+    // List NFT for sale
+    function listForSale(uint256 tokenId, uint256 price) external {
+    require(ownerOf(tokenId) == msg.sender, "Not the owner of the NFT");
+    require(price > 0, "Price must be greater than 0");
+    _listingPrices[tokenId] = price;
+
+    emit NFTListed(tokenId, price);
+}
+
+
+    // Buy NFT
+    function buyNFT(uint256 tokenId) external payable {
+        address owner = ownerOf(tokenId);
+        uint256 price = _listingPrices[tokenId];
+
+        require(price > 0, "NFT not listed for sale");
+        require(msg.value == price, "Incorrect payment amount");
+
+        // Transfer ownership
+        _transfer(owner, msg.sender, tokenId);
+        _listingPrices[tokenId] = 0; // Remove listing
+
+        // Transfer funds to seller
+        payable(owner).transfer(msg.value);
+
+        emit NFTSold(msg.sender, owner, tokenId, price);
     }
 
-    function removeFromSale(uint256 tokenId) external onlyTokenOwner(tokenId) {
-        _tokenForSale[tokenId] = false;
+    // Get listing price of an NFT
+    function getListingPrice(uint256 tokenId) external view returns (uint256) {
+        return _listingPrices[tokenId];
     }
 
-    function buy(uint256 tokenId) external payable onlyTokenForSale(tokenId) {
-        require(msg.value == salePrice, "Incorrect payment amount");
-        address seller = ownerOf(tokenId);
-        _tokenOwners[tokenId] = msg.sender;
-        _tokenForSale[tokenId] = false;
-        payable(seller).transfer(msg.value);
-        emit TokenSold(msg.sender, seller, tokenId);
-    }
-
-    function setSalePrice(uint256 newPrice) external onlyOwner {
-        require(newPrice > 0, "Sale price must be greater than zero");
-        salePrice = newPrice;
+    // Withdraw funds from the contract (onlyOwner)
+    function withdrawFunds() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
     }
 }

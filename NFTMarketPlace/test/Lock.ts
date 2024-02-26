@@ -1,127 +1,87 @@
-import {
-  time,
-  loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { NFTMarketplace } from "../typechain";
 
-describe("Lock", function () {
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
-  async function deployOneYearLockFixture() {
-    const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-    const ONE_GWEI = 1_000_000_000;
+describe("NFTMarketplace", () => {
+  let nftMarketplace: NFTMarketplace;
+  let owner: any;
+  let buyer: any;
 
-    const lockedAmount = ONE_GWEI;
-    const unlockTime = (await time.latest()) + ONE_YEAR_IN_SECS;
+  beforeEach(async () => {
+    [owner, buyer] = await ethers.getSigners();
 
-    // Contracts are deployed using the first signer/account by default
-    const [owner, otherAccount] = await ethers.getSigners();
-
-    const Lock = await ethers.getContractFactory("Lock");
-    const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-    return { lock, unlockTime, lockedAmount, owner, otherAccount };
-  }
-
-  describe("Deployment", function () {
-    it("Should set the right unlockTime", async function () {
-      const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.unlockTime()).to.equal(unlockTime);
-    });
-
-    it("Should set the right owner", async function () {
-      const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.owner()).to.equal(owner.address);
-    });
-
-    it("Should receive and store the funds to lock", async function () {
-      const { lock, lockedAmount } = await loadFixture(
-        deployOneYearLockFixture
-      );
-
-      expect(await ethers.provider.getBalance(lock.target)).to.equal(
-        lockedAmount
-      );
-    });
-
-    it("Should fail if the unlockTime is not in the future", async function () {
-      // We don't use the fixture here because we want a different deployment
-      const latestTime = await time.latest();
-      const Lock = await ethers.getContractFactory("Lock");
-      await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-        "Unlock time should be in the future"
-      );
-    });
+    const NFTMarketplaceFactory = await ethers.getContractFactory("NFTMarketplace");
+    nftMarketplace = (await NFTMarketplaceFactory.deploy("MyNFTMarket", "NFTM")) as NFTMarketplace;
+    await nftMarketplace.deployed();
   });
 
-  describe("Withdrawals", function () {
-    describe("Validations", function () {
-      it("Should revert with the right error if called too soon", async function () {
-        const { lock } = await loadFixture(deployOneYearLockFixture);
+  it("should mint a new NFT", async () => {
+    await nftMarketplace.connect(owner).mint();
+    const tokenId = 0; // Assuming the first tokenId is 0
 
-        await expect(lock.withdraw()).to.be.revertedWith(
-          "You can't withdraw yet"
-        );
-      });
+    const ownerOfToken = await nftMarketplace.ownerOf(tokenId);
+    expect(ownerOfToken).to.equal(owner.address);
 
-      it("Should revert with the right error if called from another account", async function () {
-        const { lock, unlockTime, otherAccount } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    const listingPrice = await nftMarketplace.getListingPrice(tokenId);
+    expect(listingPrice).to.equal(0); // Listing price should be 0 initially
+  });
 
-        // We can increase the time in Hardhat Network
-        await time.increaseTo(unlockTime);
+  it("should list NFT for sale", async () => {
+    await nftMarketplace.connect(owner).mint();
+    const tokenId = 0;
+    const price = ethers.utils.parseEther("1");
 
-        // We use lock.connect() to send a transaction from another account
-        await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-          "You aren't the owner"
-        );
-      });
+    await nftMarketplace.connect(owner).listForSale(tokenId, price);
 
-      it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-        const { lock, unlockTime } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    const listingPrice = await nftMarketplace.getListingPrice(tokenId);
+    expect(listingPrice).to.equal(price);
+  });
 
-        // Transactions are sent using the first signer by default
-        await time.increaseTo(unlockTime);
+  it("should buy NFT", async () => {
+    const initialBalanceOwner = await owner.getBalance();
+    const initialBalanceBuyer = await buyer.getBalance();
 
-        await expect(lock.withdraw()).not.to.be.reverted;
-      });
-    });
+    await nftMarketplace.connect(owner).mint();
+    const tokenId = 0;
+    const price = ethers.utils.parseEther("1");
 
-    describe("Events", function () {
-      it("Should emit an event on withdrawals", async function () {
-        const { lock, unlockTime, lockedAmount } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    await nftMarketplace.connect(owner).listForSale(tokenId, price);
 
-        await time.increaseTo(unlockTime);
+    await expect(nftMarketplace.connect(buyer).buyNFT(tokenId, { value: price }))
+      .to.emit(nftMarketplace, "NFTSold")
+      .withArgs(buyer.address, owner.address, tokenId, price);
 
-        await expect(lock.withdraw())
-          .to.emit(lock, "Withdrawal")
-          .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-      });
-    });
+    const newOwner = await nftMarketplace.ownerOf(tokenId);
+    expect(newOwner).to.equal(buyer.address);
 
-    describe("Transfers", function () {
-      it("Should transfer the funds to the owner", async function () {
-        const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    const newListingPrice = await nftMarketplace.getListingPrice(tokenId);
+    expect(newListingPrice).to.equal(0);
 
-        await time.increaseTo(unlockTime);
+    const finalBalanceOwner = await owner.getBalance();
+    const finalBalanceBuyer = await buyer.getBalance();
 
-        await expect(lock.withdraw()).to.changeEtherBalances(
-          [owner, lock],
-          [lockedAmount, -lockedAmount]
-        );
-      });
-    });
+    // Check if the funds were transferred correctly
+    const expectedBalanceOwner = initialBalanceOwner.add(price);
+    const expectedBalanceBuyer = initialBalanceBuyer.sub(price);
+
+    expect(finalBalanceOwner).to.equal(expectedBalanceOwner);
+    expect(finalBalanceBuyer).to.equal(expectedBalanceBuyer);
+  });
+
+  it("should withdraw funds", async () => {
+    const initialBalanceOwner = await owner.getBalance();
+    const amountToSend = ethers.utils.parseEther("1");
+
+    await owner.sendTransaction({ to: nftMarketplace.address, value: amountToSend });
+
+    const contractBalanceBefore = await ethers.provider.getBalance(nftMarketplace.address);
+    expect(contractBalanceBefore).to.equal(amountToSend);
+
+    await nftMarketplace.connect(owner).withdrawFunds();
+
+    const finalBalanceOwner = await owner.getBalance();
+    const contractBalanceAfter = await ethers.provider.getBalance(nftMarketplace.address);
+    expect(finalBalanceOwner).to.be.above(initialBalanceOwner);
+    expect(contractBalanceAfter).to.equal(0);
   });
 });
