@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract NFTSocialMedia is NFTFactory {
+import "./NFTFactory.sol";
+
+contract NFTSocialMedia {
     // Import User and NFT structs from NFTFactory.sol
-     import "./NFTFactory.sol";
+    import "./NFTFactory.sol";
+
 
     struct Post {
         address id;
@@ -13,6 +16,7 @@ contract NFTSocialMedia is NFTFactory {
         bool isLiked;
     }
 
+    // Use User and NFT structs from NFTFactory.sol
     mapping(address => NFTFactory.User) public users;
     mapping(address => NFTFactory.NFT) public nfts;
 
@@ -20,18 +24,19 @@ contract NFTSocialMedia is NFTFactory {
 
     event NewPost(address indexed post, address indexed user, address indexed nft, uint256 timestamp, bool isLiked);
 
-    constructor() public {
-        // Initialize posts
-        posts = [];
-    }
-
     function createPost(address _user, address _nft, uint256 _timestamp) public {
         // Check if user and NFT exist
         require(users[_user].id != address(0), "User does not exist");
         require(nfts[_nft].id != address(0), "NFT does not exist");
 
         // Create new post
-        Post memory newPost = Post(_user, _nft, _timestamp, false);
+        Post memory newPost = Post({
+            id: address(this), // You need to provide a value for 'id' field, I used the contract address as an example
+            user: _user,
+            nft: _nft,
+            timestamp: _timestamp,
+            isLiked: false
+        });
         posts.push(newPost);
 
         // Emit event
@@ -52,13 +57,5 @@ contract NFTSocialMedia is NFTFactory {
 
         // Unlike post
         posts[_index].isLiked = false;
-    }
-
-    function getPosts() public view returns (Post[] memory) {
-        return posts;
-    }
-
-    function getPost(uint256 _index) public view returns (Post memory) {
-        return posts[_index];
     }
 }
