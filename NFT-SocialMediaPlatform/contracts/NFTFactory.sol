@@ -12,6 +12,10 @@ contract NFTFactory {
 
     mapping(address => NFT[]) public nfts;
 
+    //  mapping(address => NFTFactory.User) public users;
+    // mapping(address => NFTFactory.NFT) public nfts;
+
+
     event NewNFT(address indexed nft, address indexed owner, address indexed artist, uint256 price, bool isMinted);
 
     constructor() {

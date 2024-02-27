@@ -4,9 +4,8 @@ pragma solidity ^0.8.0;
 import "./NFTFactory.sol";
 
 contract NFTSocialMedia {
-    // Import User and NFT structs from NFTFactory.sol
-    import "./NFTFactory.sol";
-
+    // Import NFT struct from NFTFactory.sol
+    // import "./NFTFactory.sol";
 
     struct Post {
         address id;
@@ -16,8 +15,7 @@ contract NFTSocialMedia {
         bool isLiked;
     }
 
-    // Use User and NFT structs from NFTFactory.sol
-    mapping(address => NFTFactory.User) public users;
+    // Use NFT struct from NFTFactory.sol
     mapping(address => NFTFactory.NFT) public nfts;
 
     Post[] public posts;
@@ -25,8 +23,7 @@ contract NFTSocialMedia {
     event NewPost(address indexed post, address indexed user, address indexed nft, uint256 timestamp, bool isLiked);
 
     function createPost(address _user, address _nft, uint256 _timestamp) public {
-        // Check if user and NFT exist
-        require(users[_user].id != address(0), "User does not exist");
+        // Check if NFT exists
         require(nfts[_nft].id != address(0), "NFT does not exist");
 
         // Create new post
