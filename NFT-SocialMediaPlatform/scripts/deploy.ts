@@ -22,21 +22,21 @@ import { NFTFactory, NFTSocialMedia, NFTSocial } from './typechain';
 
 async function main() {
   // Deploy NFTFactory
-  const NFTFactory = await ethers.getContractFactory('NFTFactory');
-  const nftFactory: NFTFactory = await NFTFactory.deploy();
-  // await nftFactory.deployed();
+  const NFTFactoryContract = await ethers.getContractFactory('NFTFactory');
+  const nftFactory = await NFTFactoryContract.deploy();
+  //await nftFactory.deployed();
   console.log('NFTFactory deployed to:', nftFactory.target);
 
   // Deploy NFTSocialMedia
-  const NFTSocialMedia = await ethers.getContractFactory('NFTSocialMedia');
-  const nftSocialMedia: NFTSocialMedia = await NFTSocialMedia.deploy();
-  // await nftSocialMedia.deployed();
+  const NFTSocialMediaContract = await ethers.getContractFactory('NFTSocialMedia');
+  const nftSocialMedia = await NFTSocialMediaContract.deploy();
+  //await nftSocialMedia.deployed();
   console.log('NFTSocialMedia deployed to:', nftSocialMedia.target);
 
   // Deploy NFTSocial
-  const NFTSocial = await ethers.getContractFactory('NFTSocial');
-  const nftSocial: NFTSocial = await NFTSocial.deploy(nftFactory.address, nftSocialMedia.address);
-  // await nftSocial.deployed();
+  const NFTSocialContract = await ethers.getContractFactory('NFTSocial');
+  const nftSocial = await NFTSocialContract.deploy(nftFactory.target, nftSocialMedia.target);
+  //await nftSocial.deployed();
   console.log('NFTSocial deployed to:', nftSocial.target);
 }
 
