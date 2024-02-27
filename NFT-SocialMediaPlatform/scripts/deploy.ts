@@ -1,27 +1,49 @@
-import { ethers } from "hardhat";
+// import { ethers } from "hardhat";
+
+// async function main() {
+//     const [deployer] = await ethers.getSigners();
+
+//     const MyContractFactory = await ethers.getContractFactory("MyContractFactory");
+//     const myContractFactory = await MyContractFactory.deploy();
+
+//     console.log("MyContractFactory deployed to:", myContractFactory.target);
+// }
+
+// main();
+
+
+// import { ethers } from 'hardhat';
+// import { NFTFactory } from '../typechain';
+
+
+
+import { ethers } from 'hardhat';
+import { NFTFactory, NFTSocialMedia, NFTSocial } from './typechain';
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  // Deploy NFTFactory
+  const NFTFactory = await ethers.getContractFactory('NFTFactory');
+  const nftFactory: NFTFactory = await NFTFactory.deploy();
+  // await nftFactory.deployed();
+  console.log('NFTFactory deployed to:', nftFactory.target);
 
-  const lockedAmount = ethers.parseEther("0.001");
+  // Deploy NFTSocialMedia
+  const NFTSocialMedia = await ethers.getContractFactory('NFTSocialMedia');
+  const nftSocialMedia: NFTSocialMedia = await NFTSocialMedia.deploy();
+  // await nftSocialMedia.deployed();
+  console.log('NFTSocialMedia deployed to:', nftSocialMedia.target);
 
-  const lock = await ethers.deployContract("Lock", [unlockTime], {
-    value: lockedAmount,
-  });
-
-  await lock.waitForDeployment();
-
-  console.log(
-    `Lock with ${ethers.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.target}`
-  );
+  // Deploy NFTSocial
+  const NFTSocial = await ethers.getContractFactory('NFTSocial');
+  const nftSocial: NFTSocial = await NFTSocial.deploy(nftFactory.address, nftSocialMedia.address);
+  // await nftSocial.deployed();
+  console.log('NFTSocial deployed to:', nftSocial.target);
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+// Run the deployment
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
